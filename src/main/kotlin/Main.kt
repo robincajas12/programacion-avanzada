@@ -41,7 +41,6 @@ fun main(args: Array<String>) = runBlocking {
     val prestamosState = UseState(Database.prestamos)
     val configuracionState = UseState(Database.configuracion)
 
-    // Estados reactivos para vistas de reportes y búsquedas
     val adultosReporteState = UseState(listOf<Usuario>())
     val resultadoBusquedaState = UseState(listOf<Libro>())
 
