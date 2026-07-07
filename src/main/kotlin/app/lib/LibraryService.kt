@@ -1,21 +1,18 @@
 package example.app.lib
 
-import example.Usuario
-import example.Libro
-import example.Prestamo
+
+import app.data.*
 import kotlinx.coroutines.delay
 
 object LibraryService {
 
-    // ==========================================
-    // 1. FUNCIONES PURAS (Mínimo 5)
-    // ==========================================
-    
+    // 1. FUNCIONES PURAS
+
     // Función pura 1: Calcular la multa acumulada por días de retraso
     fun calcularMulta(diasRetraso: Int, tarifaDiaria: Double): Double =
         if (diasRetraso <= 0) 0.0 else diasRetraso * tarifaDiaria
 
-    // Función pura 2: Aplicar descuento a una multa (ej. descuento por pronto pago)
+    // Función pura 2: Aplicar descuento a una multa
     fun calcularDescuentoMulta(multa: Double, porcentaje: Double): Double =
         if (multa <= 0.0 || porcentaje <= 0.0) multa else multa * (1.0 - (porcentaje / 100.0))
 
@@ -36,10 +33,8 @@ object LibraryService {
         if (edades.isEmpty()) 0.0 else edades.sum().toDouble() / edades.size
 
 
-    // ==========================================
-    // 2. FUNCIONES DE ORDEN SUPERIOR & LAMBDAS (Mínimo 4)
-    // ==========================================
-    
+    // 2. FUNCIONES DE ORDEN SUPERIOR & LAMBDAS
+
     // FOS 1: Filtrar y mapear elementos genéricos usando transformaciones personalizadas
     fun <T, R> filtrarYTransformar(lista: List<T>, filtro: (T) -> Boolean, transformacion: (T) -> R): List<R> =
         lista.filter(filtro).map(transformacion)
@@ -58,13 +53,11 @@ object LibraryService {
         libros.sortedBy { it.titulo }.groupBy { it.autor }
 
 
-    // ==========================================
     // 5. CORUTINAS (Mínimo 2 con suspend, delay, async, await, launch)
-    // ==========================================
-    
+
     // Corutina 1: Carga asíncrona simulada de base de datos de libros
     suspend fun simularCargaLibrosAsync(): Result<List<Libro>> {
-        delay(3*1000) // Simula latencia de red/BD
+        delay(3*1000)
         val libros = listOf(
             Libro("El Quijote", "Miguel de Cervantes"),
             Libro("Cien Años de Soledad", "Gabriel García Márquez"),
@@ -74,20 +67,18 @@ object LibraryService {
     }
 
     // Corutina 2: Procesar préstamo en segundo plano validando condiciones
-    suspend fun procesarPrestamoAsync(libro: String, usuario: String): ResultAsync<String> {
-        delay(800) // Simula procesamiento del préstamo
+    suspend fun procesarPrestamoAsync(libro: String, usuario: String): Result<String> {
+        delay(800)
         return if (libro.isBlank() || usuario.isBlank()) {
-            ResultAsync.Failure(IllegalArgumentException("Libro o usuario vacío"))
+            Result.Failure(IllegalArgumentException("Libro o usuario vacío"))
         } else {
-            ResultAsync.Success(generarMensajePrestamo(libro, usuario))
+            Result.Success(generarMensajePrestamo(libro, usuario))
         }
     }
 
 
-    // ==========================================
-    // 6. RECURSIÓN (Mínimo 1)
-    // ==========================================
-    
+    // 6. RECURSIÓN
+
     // Búsqueda recursiva de libros que coincidan parcialmente con un título
     fun buscarLibroRecursivo(libros: List<Libro>, query: String, index: Int = 0): Libro? {
         if (index >= libros.size) return null
@@ -98,10 +89,8 @@ object LibraryService {
     }
 
 
-    // ==========================================
-    // 7. CORECURSIÓN / SECUENCIAS INFINITAS (Mínimo 1)
-    // ==========================================
-    
+    // 7. CORECURSIÓN / SECUENCIAS INFINITAS(Mínimo 1)
+
     // Generador infinito de tokens de transacción único usando Sequence y yield
     val generadorDeTokens: Sequence<String> = sequence {
         var contador = 1001
@@ -116,10 +105,9 @@ object LibraryService {
         generadorDeTokens.take(cantidad).toList()
 
 
-    // ==========================================
+
     // 8. COMPOSICIÓN DE FUNCIONES / PIPELINE
-    // ==========================================
-    
+
     // Composición: Obtiene nombres de usuarios mayores de edad en mayúsculas y ordenados
     fun obtenerNombresMayoresOrdenados(usuarios: List<Usuario>): List<String> =
         usuarios
@@ -128,9 +116,8 @@ object LibraryService {
             .sortedBy { it }
 
 
-    // ==========================================
     // 9. MANEJO DE ERRORES SIN EXCEPCIONES
-    // ==========================================
+
     
     // Validación pura que retorna un Result con éxito o error de negocio
     fun validarRegistroUsuario(nombre: String, edad: Int): Result<Usuario> {

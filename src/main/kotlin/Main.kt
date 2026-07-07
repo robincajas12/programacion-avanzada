@@ -1,18 +1,15 @@
 package example
 
+
+import app.data.*
+import app.lib.Database
 import example.app.views.*
 import example.app.lib.LibraryService
 import example.app.lib.Result
-import example.app.lib.ResultAsync
 import example.app.views.ascii.ASCCI
 import kotlinx.coroutines.*
 
-// Clases específicas por dominio
-data class Usuario(val nombre: String, val edad: Int, val categoria: String = "Adulto")
-data class Libro(val titulo: String, val autor: String)
-data class Estadistica(val concepto: String, val valor: String)
-data class Prestamo(val libro: String, val usuario: String, val tokenTransaccion: String = "N/A")
-data class Configuracion(val opcion: String, val estado: String)
+
 
 fun main(args: Array<String>) = runBlocking {
     if (args.isEmpty()) {
@@ -39,21 +36,10 @@ fun main(args: Array<String>) = runBlocking {
     }
 
     // Estados reactivos (List, Map, Set)
-    val usuariosState = UseState(listOf(
-        Usuario("Alice", 23, LibraryService.determinarCategoriaSocio(23)),
-        Usuario("Bob", 34, LibraryService.determinarCategoriaSocio(34)),
-        Usuario("Carlos", 10, LibraryService.determinarCategoriaSocio(10))
-    ))
+    val usuariosState = UseState(Database.usuarios)
     val librosState = UseState(librosIniciales)
-    val prestamosState = UseState(listOf(
-        Prestamo("El Quijote", "Alice", LibraryService.obtenerTokensNuevos(1).first()),
-        Prestamo("Ficciones", "Bob", LibraryService.obtenerTokensNuevos(2).last())
-    ))
-    val configuracionState = UseState(listOf(
-        Configuracion("Límite de Días", "15 días"),
-        Configuracion("Multa Diaria", "$1.50 USD"),
-        Configuracion("Notificaciones", "Habilitadas")
-    ))
+    val prestamosState = UseState(Database.prestamos)
+    val configuracionState = UseState(Database.configuracion)
 
     // Estados reactivos para vistas de reportes y búsquedas
     val adultosReporteState = UseState(listOf<Usuario>())
@@ -137,7 +123,6 @@ fun main(args: Array<String>) = runBlocking {
         "Escribe una opción: "
     ).apply { setColor(Color.AMARILLO) })
 
-    // Establecemos la vista inicial
     nav.setView("USUARIOS")
     UI.instance.set(menu)
 
@@ -178,7 +163,6 @@ fun main(args: Array<String>) = runBlocking {
                 nav.setView("USUARIOS")
             }
             "7" -> {
-                // Mostrar formulario usando la vista estructurada NUEVO_LIBRO
                 nav.setView("NUEVO_LIBRO")
                 print("Título del Libro: ")
                 val tit = readlnOrNull()?.trim() ?: ""
@@ -207,7 +191,7 @@ fun main(args: Array<String>) = runBlocking {
                 val job = launch {
                     val prestamoResult = LibraryService.procesarPrestamoAsync(tit, usr)
                     when (prestamoResult) {
-                        is ResultAsync.Success -> {
+                        is Result.Success -> {
                             val tokenUnico = LibraryService.obtenerTokensNuevos(prestamosState.get().size + 1).last()
                             val nuevoPrestamo = Prestamo(tit, usr, tokenUnico)
                             prestamosState.set(prestamosState.get() + nuevoPrestamo)
@@ -215,7 +199,7 @@ fun main(args: Array<String>) = runBlocking {
                             println("\n[ÉXITO] ${prestamoResult.result}")
                             println("Token generado: $tokenUnico")
                         }
-                        is ResultAsync.Failure -> {
+                        is Result.Failure -> {
                             println("\n[ERROR] Falló el préstamo: ${prestamoResult.exception.message}")
                         }
                         else -> {}
@@ -249,7 +233,6 @@ fun main(args: Array<String>) = runBlocking {
                 // Filtrar utilizando composición y mostrar en la vista estructurada REPORTE_ADULTOS
                 val nombresAdultos = LibraryService.obtenerNombresMayoresOrdenados(usuariosState.get())
                 
-                // Mapear los nombres a la lista de usuarios correspondientes para mostrarlos en la Tabla
                 val adultosFiltrados = usuariosState.get().filter { u ->
                     nombresAdultos.contains(u.nombre.uppercase())
                 }.sortedBy { it.nombre }
