@@ -127,7 +127,7 @@ fun main(args: Array<String>) = runBlocking {
         "--------------------------------------------------\n" +
         "[6] Registrar Usuario [7] Registrar Libro   [8] Solicitar Préstamo\n" +
         "[9] Buscar Libro (Recursivo)  [0] Reporte Adultos (Composición)\n" +
-        "[u] Autores Únicos (Set)      [d] Eliminar Registro          [e] Actualizar Datos\n" +
+        "[u] Autores Unicos usando un Set      [d] Eliminar Registro          [e] Actualizar Datos\n" +
         "[c] Salir\n\n" +
         "Escribe una opción: "
     ).apply { setColor(Color.AMARILLO) })
@@ -149,7 +149,6 @@ fun main(args: Array<String>) = runBlocking {
             }
             "5" -> nav.setView("CONFIGURACION")
             "6" -> {
-                // Mostrar formulario usando la vista estructurada NUEVO_USUARIO
                 nav.setView("NUEVO_USUARIO")
                 print("Nombre del usuario: ")
                 val nombre = readlnOrNull()?.trim() ?: ""
@@ -189,7 +188,6 @@ fun main(args: Array<String>) = runBlocking {
                 nav.setView("LIBROS")
             }
             "8" -> {
-                // Mostrar formulario usando la vista estructurada NUEVO_PRESTAMO
                 nav.setView("NUEVO_PRESTAMO")
                 print("Título del Libro: ")
                 val tit = readlnOrNull()?.trim() ?: ""
@@ -229,7 +227,6 @@ fun main(args: Array<String>) = runBlocking {
                 nav.setView("PRESTAMOS")
             }
             "9" -> {
-                // Inicializar y mostrar vista de búsqueda
                 resultadoBusquedaState.set(emptyList())
                 nav.setView("BUSCAR_LIBRO")
                 print("Escribe el título para buscar de forma recursiva: ")
@@ -248,7 +245,7 @@ fun main(args: Array<String>) = runBlocking {
                 nav.setView("LIBROS")
             }
             "0" -> {
-                // Filtrar utilizando composición y mostrar en la vista estructurada REPORTE_ADULTOS
+                // Filtrar utilizando composición
                 val nombresAdultos = LibraryService.obtenerNombresMayoresOrdenados(UsuarioRepository.getAll())
                 
                 val adultosFiltrados = UsuarioRepository.getAll().filter { u ->
