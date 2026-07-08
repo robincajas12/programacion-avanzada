@@ -3,6 +3,8 @@ package example.app.lib
 
 import app.data.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 object LibraryService {
 
@@ -127,5 +129,43 @@ object LibraryService {
             edad > 120 -> Result.Failure(IllegalArgumentException("Edad fuera de rango permitido."))
             else -> Result.Success(Usuario(nombre, edad))
         }
+    }
+
+    // Corutina 3: Validar disponibilidad de préstamo de manera concurrente usando async/await
+    suspend fun verificarDisponibilidadPrestamoAsync(
+        libroTitulo: String,
+        usuarioNombre: String,
+        libros: List<Libro>,
+        usuarios: List<Usuario>,
+        prestamos: List<Prestamo>
+    ): Result<Boolean> = coroutineScope {
+        val libroExisteDeferred = async {
+            delay(200)
+            libros.any { it.titulo.equals(libroTitulo, ignoreCase = true) }
+        }
+        val usuarioExisteDeferred = async {
+            delay(200)
+            usuarios.any { it.nombre.equals(usuarioNombre, ignoreCase = true) }
+        }
+        val libroPrestadoDeferred = async {
+            delay(200)
+            prestamos.any { it.libro.equals(libroTitulo, ignoreCase = true) }
+        }
+
+        val libroExiste = libroExisteDeferred.await()
+        val usuarioExiste = usuarioExisteDeferred.await()
+        val libroPrestado = libroPrestadoDeferred.await()
+
+        when {
+            !libroExiste -> Result.Failure(IllegalArgumentException("El libro '$libroTitulo' no existe en el catálogo."))
+            !usuarioExiste -> Result.Failure(IllegalArgumentException("El usuario '$usuarioNombre' no está registrado."))
+            libroPrestado -> Result.Failure(IllegalArgumentException("El libro '$libroTitulo' ya se encuentra prestado actualmente."))
+            else -> Result.Success(true)
+        }
+    }
+
+    // Método para obtener autores únicos usando un Set
+    fun obtenerAutoresUnicos(libros: List<Libro>): Set<Autor> {
+        return libros.map { Autor(it.autor) }.toSet()
     }
 }

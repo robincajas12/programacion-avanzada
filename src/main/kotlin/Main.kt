@@ -40,6 +40,7 @@ fun main(args: Array<String>) = runBlocking {
     val librosState = UseState(librosIniciales)
     val prestamosState = UseState(Database.prestamos)
     val configuracionState = UseState(Database.configuracion)
+    val autoresState = UseState(LibraryService.obtenerAutoresUnicos(librosIniciales).toList())
 
     val adultosReporteState = UseState(listOf<Usuario>())
     val resultadoBusquedaState = UseState(listOf<Libro>())
@@ -87,6 +88,10 @@ fun main(args: Array<String>) = runBlocking {
         Texto(UseState("--- CONFIGURACIÓN GENERAL ---").apply { setColor(Color.AZUL) }),
         Tabla(configuracionState)
     )
+    vistas["AUTORES"] = listOf(
+        Texto(UseState("--- AUTORES ÚNICOS (SET) ---").apply { setColor(Color.CYAN) }),
+        Tabla(autoresState)
+    )
 
     // ------------ Vistas de Formularios y Reports --------
     vistas["NUEVO_USUARIO"] = listOf(
@@ -118,6 +123,7 @@ fun main(args: Array<String>) = runBlocking {
         "--------------------------------------------------\n" +
         "[6] Registrar Usuario [7] Registrar Libro   [8] Solicitar Préstamo\n" +
         "[9] Buscar Libro (Recursivo)  [0] Reporte Adultos (Composición)\n" +
+        "[u] Autores Únicos (Set)      [d] Eliminar Registro\n" +
         "[c] Salir\n\n" +
         "Escribe una opción: "
     ).apply { setColor(Color.AMARILLO) })
@@ -169,6 +175,7 @@ fun main(args: Array<String>) = runBlocking {
                 val aut = readlnOrNull()?.trim() ?: ""
                 if (tit.isNotEmpty() && aut.isNotEmpty()) {
                     librosState.set(librosState.get() + Libro(tit, aut))
+                    autoresState.set(LibraryService.obtenerAutoresUnicos(librosState.get()).toList())
                     estadisticasState.set(calcularEstadisticas())
                     println("\n[ÉXITO] Libro registrado con éxito.")
                 } else {
@@ -188,20 +195,29 @@ fun main(args: Array<String>) = runBlocking {
 
                 println("\nProcesando préstamo asíncronamente...")
                 val job = launch {
-                    val prestamoResult = LibraryService.procesarPrestamoAsync(tit, usr)
-                    when (prestamoResult) {
+                    val disponibilidadResult = LibraryService.verificarDisponibilidadPrestamoAsync(
+                        tit, usr, librosState.get(), usuariosState.get(), prestamosState.get()
+                    )
+                    when (disponibilidadResult) {
                         is Result.Success -> {
-                            val tokenUnico = LibraryService.obtenerTokensNuevos(prestamosState.get().size + 1).last()
-                            val nuevoPrestamo = Prestamo(tit, usr, tokenUnico)
-                            prestamosState.set(prestamosState.get() + nuevoPrestamo)
-                            estadisticasState.set(calcularEstadisticas())
-                            println("\n[ÉXITO] ${prestamoResult.result}")
-                            println("Token generado: $tokenUnico")
+                            val prestamoResult = LibraryService.procesarPrestamoAsync(tit, usr)
+                            when (prestamoResult) {
+                                is Result.Success -> {
+                                    val tokenUnico = LibraryService.obtenerTokensNuevos(prestamosState.get().size + 1).last()
+                                    val nuevoPrestamo = Prestamo(tit, usr, tokenUnico)
+                                    prestamosState.set(prestamosState.get() + nuevoPrestamo)
+                                    estadisticasState.set(calcularEstadisticas())
+                                    println("\n[ÉXITO] ${prestamoResult.result}")
+                                    println("Token generado: $tokenUnico")
+                                }
+                                is Result.Failure -> {
+                                    println("\n[ERROR] Falló al procesar el préstamo: ${prestamoResult.exception.message}")
+                                }
+                            }
                         }
                         is Result.Failure -> {
-                            println("\n[ERROR] Falló el préstamo: ${prestamoResult.exception.message}")
+                            println("\n[ERROR] Validación fallida: ${disponibilidadResult.exception.message}")
                         }
-                        else -> {}
                     }
                 }
                 job.join()
@@ -242,6 +258,100 @@ fun main(args: Array<String>) = runBlocking {
                 print("\nPresiona Enter para continuar...")
                 readlnOrNull()
                 nav.setView("USUARIOS")
+            }
+            "u" -> {
+                nav.setView("AUTORES")
+                print("\nPresiona Enter para continuar...")
+                readlnOrNull()
+                nav.setView("LIBROS")
+            }
+            "d" -> {
+                UI.instance.clearConsole()
+                println("=== ELIMINAR REGISTROS ===")
+                println("[1] Eliminar Usuario")
+                println("[2] Eliminar Libro")
+                println("[3] Eliminar Préstamo")
+                println("[c] Cancelar")
+                print("\nSeleccione una opción: ")
+                val deleteOpt = readlnOrNull()?.trim() ?: "c"
+                when (deleteOpt) {
+                    "1" -> {
+                        println("\n--- ELIMINAR USUARIO ---")
+                        val currentUsers = usuariosState.get()
+                        if (currentUsers.isEmpty()) {
+                            println("No hay usuarios registrados.")
+                        } else {
+                            println("Usuarios actuales:")
+                            currentUsers.forEach { println("- ${it.nombre} (${it.edad} años)") }
+                            print("\nIngrese el nombre del usuario a eliminar: ")
+                            val nombreEliminar = readlnOrNull()?.trim() ?: ""
+                            val usuarioExiste = currentUsers.any { it.nombre.equals(nombreEliminar, ignoreCase = true) }
+                            if (usuarioExiste) {
+                                val nuevosUsuarios = currentUsers.filter { !it.nombre.equals(nombreEliminar, ignoreCase = true) }
+                                usuariosState.set(nuevosUsuarios)
+                                
+                                val nuevosPrestamos = prestamosState.get().filter { !it.usuario.equals(nombreEliminar, ignoreCase = true) }
+                                prestamosState.set(nuevosPrestamos)
+                                
+                                estadisticasState.set(calcularEstadisticas())
+                                println("\n[ÉXITO] Usuario '$nombreEliminar' y sus préstamos asociados han sido eliminados.")
+                            } else {
+                                println("\n[ERROR] Usuario '$nombreEliminar' no encontrado.")
+                            }
+                        }
+                    }
+                    "2" -> {
+                        println("\n--- ELIMINAR LIBRO ---")
+                        val currentLibros = librosState.get()
+                        if (currentLibros.isEmpty()) {
+                            println("No hay libros registrados.")
+                        } else {
+                            println("Libros actuales:")
+                            currentLibros.forEach { println("- '${it.titulo}' por ${it.autor}") }
+                            print("\nIngrese el título del libro a eliminar: ")
+                            val tituloEliminar = readlnOrNull()?.trim() ?: ""
+                            val libroExiste = currentLibros.any { it.titulo.equals(tituloEliminar, ignoreCase = true) }
+                            if (libroExiste) {
+                                val nuevosLibros = currentLibros.filter { !it.titulo.equals(tituloEliminar, ignoreCase = true) }
+                                librosState.set(nuevosLibros)
+                                
+                                autoresState.set(LibraryService.obtenerAutoresUnicos(nuevosLibros).toList())
+                                
+                                val nuevosPrestamos = prestamosState.get().filter { !it.libro.equals(tituloEliminar, ignoreCase = true) }
+                                prestamosState.set(nuevosPrestamos)
+                                
+                                estadisticasState.set(calcularEstadisticas())
+                                println("\n[ÉXITO] Libro '$tituloEliminar' y sus préstamos asociados han sido eliminados.")
+                            } else {
+                                println("\n[ERROR] Libro '$tituloEliminar' no encontrado.")
+                            }
+                        }
+                    }
+                    "3" -> {
+                        println("\n--- ELIMINAR PRÉSTAMO ---")
+                        val currentPrestamos = prestamosState.get()
+                        if (currentPrestamos.isEmpty()) {
+                            println("No hay préstamos activos.")
+                        } else {
+                            println("Préstamos actuales:")
+                            currentPrestamos.forEach { println("- Token: ${it.tokenTransaccion} | Libro: '${it.libro}' | Usuario: ${it.usuario}") }
+                            print("\nIngrese el token del préstamo a eliminar: ")
+                            val tokenEliminar = readlnOrNull()?.trim() ?: ""
+                            val prestamoExiste = currentPrestamos.any { it.tokenTransaccion.equals(tokenEliminar, ignoreCase = true) }
+                            if (prestamoExiste) {
+                                val nuevosPrestamos = currentPrestamos.filter { !it.tokenTransaccion.equals(tokenEliminar, ignoreCase = true) }
+                                prestamosState.set(nuevosPrestamos)
+                                estadisticasState.set(calcularEstadisticas())
+                                println("\n[ÉXITO] Préstamo con token '$tokenEliminar' eliminado.")
+                            } else {
+                                println("\n[ERROR] Préstamo con token '$tokenEliminar' no encontrado.")
+                            }
+                        }
+                    }
+                }
+                print("\nPresiona Enter para continuar...")
+                readlnOrNull()
+                UI.instance.render()
             }
             else -> {
                 UI.instance.render()
