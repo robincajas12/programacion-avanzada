@@ -123,7 +123,7 @@ fun main(args: Array<String>) = runBlocking {
         "--------------------------------------------------\n" +
         "[6] Registrar Usuario [7] Registrar Libro   [8] Solicitar Préstamo\n" +
         "[9] Buscar Libro (Recursivo)  [0] Reporte Adultos (Composición)\n" +
-        "[u] Autores Únicos (Set)      [d] Eliminar Registro\n" +
+        "[u] Autores Únicos (Set)      [d] Eliminar Registro          [e] Actualizar Datos\n" +
         "[c] Salir\n\n" +
         "Escribe una opción: "
     ).apply { setColor(Color.AMARILLO) })
@@ -345,6 +345,87 @@ fun main(args: Array<String>) = runBlocking {
                                 println("\n[ÉXITO] Préstamo con token '$tokenEliminar' eliminado.")
                             } else {
                                 println("\n[ERROR] Préstamo con token '$tokenEliminar' no encontrado.")
+                            }
+                        }
+                    }
+                }
+                print("\nPresiona Enter para continuar...")
+                readlnOrNull()
+                UI.instance.render()
+            }
+            "e" -> {
+                UI.instance.clearConsole()
+                println("=== ACTUALIZAR DATOS ===")
+                println("[1] Actualizar Edad de Usuario")
+                println("[2] Actualizar Parámetro de Configuración")
+                println("[c] Cancelar")
+                print("\nSeleccione una opción: ")
+                val updateOpt = readlnOrNull()?.trim() ?: "c"
+                when (updateOpt) {
+                    "1" -> {
+                        println("\n--- ACTUALIZAR EDAD DE USUARIO ---")
+                        val currentUsers = usuariosState.get()
+                        if (currentUsers.isEmpty()) {
+                            println("No hay usuarios registrados.")
+                        } else {
+                            println("Usuarios actuales:")
+                            currentUsers.forEach { println("- ${it.nombre} (${it.edad} años)") }
+                            print("\nIngrese el nombre del usuario a actualizar: ")
+                            val nombreActualizar = readlnOrNull()?.trim() ?: ""
+                            val usuarioIndex = currentUsers.indexOfFirst { it.nombre.equals(nombreActualizar, ignoreCase = true) }
+                            if (usuarioIndex != -1) {
+                                print("Ingrese la nueva edad: ")
+                                val nuevaEdad = readlnOrNull()?.toIntOrNull() ?: -1
+                                val validacion = LibraryService.validarRegistroUsuario(nombreActualizar, nuevaEdad)
+                                when (validacion) {
+                                    is Result.Success -> {
+                                        val usuarioOriginal = currentUsers[usuarioIndex]
+                                        val usuarioActualizado = usuarioOriginal.copy(
+                                            edad = nuevaEdad,
+                                            categoria = LibraryService.determinarCategoriaSocio(nuevaEdad)
+                                        )
+                                        val nuevosUsuarios = currentUsers.toMutableList()
+                                        nuevosUsuarios[usuarioIndex] = usuarioActualizado
+                                        usuariosState.set(nuevosUsuarios)
+                                        estadisticasState.set(calcularEstadisticas())
+                                        println("\n[ÉXITO] Edad de '${usuarioOriginal.nombre}' actualizada a $nuevaEdad (${usuarioActualizado.categoria}).")
+                                    }
+                                    is Result.Failure -> {
+                                        println("\n[ERROR] Datos inválidos: ${validacion.exception.message}")
+                                    }
+                                }
+                            } else {
+                                println("\n[ERROR] Usuario '$nombreActualizar' no encontrado.")
+                            }
+                        }
+                    }
+                    "2" -> {
+                        println("\n--- ACTUALIZAR CONFIGURACIÓN ---")
+                        val currentConfig = configuracionState.get()
+                        if (currentConfig.isEmpty()) {
+                            println("No hay parámetros de configuración.")
+                        } else {
+                            println("Configuraciones actuales:")
+                            currentConfig.forEachIndexed { idx, config -> 
+                                println("[${idx + 1}] ${config.opcion}: ${config.estado}") 
+                            }
+                            print("\nSeleccione el número de la configuración a actualizar: ")
+                            val idxConfig = (readlnOrNull()?.toIntOrNull() ?: 0) - 1
+                            if (idxConfig in currentConfig.indices) {
+                                val configOriginal = currentConfig[idxConfig]
+                                print("Ingrese el nuevo valor para '${configOriginal.opcion}': ")
+                                val nuevoValor = readlnOrNull()?.trim() ?: ""
+                                if (nuevoValor.isNotEmpty()) {
+                                    val configActualizada = configOriginal.copy(estado = nuevoValor)
+                                    val nuevaConfig = currentConfig.toMutableList()
+                                    nuevaConfig[idxConfig] = configActualizada
+                                    configuracionState.set(nuevaConfig)
+                                    println("\n[ÉXITO] '${configOriginal.opcion}' actualizada a: $nuevoValor")
+                                } else {
+                                    println("\n[ERROR] El valor no puede estar vacío.")
+                                }
+                            } else {
+                                println("\n[ERROR] Selección inválida.")
                             }
                         }
                     }
